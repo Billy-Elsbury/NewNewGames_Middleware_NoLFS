@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Unity.Netcode;
 using UnityEngine;
 
 namespace Supercyan.AnimalPeopleSample
 {
-    public class SimpleSampleCharacterControl : MonoBehaviour
+    public class CharacterControl : NetworkBehaviour
     {
-        public Transform rhg;
+        public Transform rightHandGrip;
         private enum ControlMode
         {
             /// <summary>
@@ -58,6 +59,21 @@ namespace Supercyan.AnimalPeopleSample
             if (!m_rigidBody) { gameObject.GetComponent<Animator>(); }
 
             allCatchableItems = FindObjectsOfType<ObjectScript>().ToList();
+        }
+
+        [SerializeField] private Camera playerCamera; // Assign the camera from your prefab
+
+        private void Start()
+        {
+            // Ensure this setup only runs for the local player
+            if (IsLocalPlayer)
+            {
+                playerCamera.enabled = true;  // Enable the local player's camera
+            }
+            else
+            {
+                playerCamera.enabled = false; // Disable remote players' cameras
+            }
         }
 
         private ObjectScript ClosestObject()
@@ -142,6 +158,12 @@ namespace Supercyan.AnimalPeopleSample
 
         private void Update()
         {
+            if (!IsOwner) return;
+            CharacterMovement();
+        }
+
+        private void CharacterMovement()
+        {
             if (Input.GetKeyDown(KeyCode.F) && !isHoldingObject)
             {
                 focusObject = ClosestObject();
@@ -169,7 +191,7 @@ namespace Supercyan.AnimalPeopleSample
         {
             if (isPickingUp && focusObject != null)
             {
-                Transform handTransform = rhg;
+                Transform handTransform = rightHandGrip;
 
                 Vector3 directionToObject = (focusObject.transform.position - transform.position).normalized;
                 float distanceToObject = Vector3.Distance(transform.position, focusObject.transform.position);
@@ -205,7 +227,7 @@ namespace Supercyan.AnimalPeopleSample
 
         private void AttachObjectToHand(ObjectScript obj)
         {
-            obj.transform.SetParent(rhg);
+            obj.transform.SetParent(rightHandGrip);
             obj.transform.localPosition = Vector3.zero;
             obj.transform.localRotation = Quaternion.identity;
 
@@ -261,8 +283,10 @@ namespace Supercyan.AnimalPeopleSample
         private void FixedUpdate()
         {
             m_animator.SetBool("Grounded", m_isGrounded);
+            
             if(Input.GetKeyDown(KeyCode.J))
             m_animator.SetTrigger("Wave");
+            
             switch (m_controlMode)
             {
                 case ControlMode.Direct:
