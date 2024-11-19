@@ -1363,7 +1363,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 1366083569
+  GlobalObjectIdHash: 624331210
   InScenePlacedSourceGlobalObjectIdHash: 4142435571
   AlwaysReplicateAsRoot: 0
   SynchronizeTransform: 1
@@ -1384,7 +1384,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e292e05258fa8f9488f1321cb014a57c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rightHandGrip: {fileID: 7883002740467600500}
+  rightHandGrip: {fileID: 4530827760529930488}
   m_moveSpeed: 2
   m_turnSpeed: 200
   m_jumpForce: 4

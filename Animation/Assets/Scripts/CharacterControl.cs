@@ -7,6 +7,7 @@ namespace Supercyan.AnimalPeopleSample
 {
     public class CharacterControl : NetworkBehaviour
     {
+        private const float pickUpTolerance = 0.4f;
         public Transform rightHandGrip;
         private enum ControlMode
         {
@@ -43,6 +44,7 @@ namespace Supercyan.AnimalPeopleSample
         private float m_jumpTimeStamp = 0;
         private float m_minJumpInterval = 0.25f;
         private bool m_jumpInput = false;
+        ObjectSpawner objectSpawner;
 
         private bool m_isGrounded;
 
@@ -74,6 +76,8 @@ namespace Supercyan.AnimalPeopleSample
             {
                 playerCamera.enabled = false; // Disable remote players' cameras
             }
+
+            objectSpawner = FindObjectOfType<ObjectSpawner>();
         }
 
         private ObjectScript ClosestObject()
@@ -81,13 +85,23 @@ namespace Supercyan.AnimalPeopleSample
             ObjectScript closestObject = null;
             float closestDistance = float.MaxValue;
 
-            foreach (ObjectScript obj in allCatchableItems)
+            Collider[] allColliders = Physics.OverlapSphere(gameObject.transform.position, 5);
+            
+
+            foreach (Collider col in allColliders)
             {
-                float distance = Vector3.Distance(transform.position, obj.transform.position);
-                if (distance < closestDistance)
+                ObjectScript snowball = col.GetComponent<ObjectScript>();
+                if (snowball != null)
                 {
-                    closestDistance = distance;
-                    closestObject = obj;
+                    float distance = Vector3.Distance(transform.position, col.transform.position);
+                    if (distance < closestDistance)
+                    {
+                        closestDistance = distance;
+                        closestObject = snowball;
+
+
+                    }
+
                 }
             }
             return closestObject;
@@ -160,6 +174,14 @@ namespace Supercyan.AnimalPeopleSample
         {
             if (!IsOwner) return;
             CharacterMovement();
+
+            if (Input.GetKeyDown(KeyCode.P))
+            {
+                GameObject g = objectSpawner.snowBall();
+                g.GetComponent<Rigidbody>().isKinematic = false;
+                //g.transform.parent = rightHandGrip;
+                //g.transform.localPosition = Vector3.zero;
+            }
         }
 
         private void CharacterMovement()
@@ -173,7 +195,14 @@ namespace Supercyan.AnimalPeopleSample
             {
                 isPickingUp = true;
                 m_animator.SetTrigger("PickUp");
-                ikTargetPosition = m_animator.GetBoneTransform(HumanBodyBones.RightHand).position;
+                //ikTargetPosition = m_animator.GetBoneTransform(HumanBodyBones.RightHand).position;
+
+                float distanceToHand = Vector3.Distance(rightHandGrip.position, focusObject.transform.position) - focusObject.transform.localScale.x;
+                if (distanceToHand <= pickUpTolerance)
+                {
+                    AttachObjectToHand(focusObject);
+                    isPickingUp = false;
+                }
             }
 
             if (!m_jumpInput && Input.GetKey(KeyCode.Space))
@@ -187,7 +216,7 @@ namespace Supercyan.AnimalPeopleSample
             }
         }
 
-        private void OnAnimatorIK(int layerIndex)
+        /*private void OnAnimatorIK(int layerIndex)
         {
             if (isPickingUp && focusObject != null)
             {
@@ -210,10 +239,10 @@ namespace Supercyan.AnimalPeopleSample
                 m_animator.SetIKRotation(AvatarIKGoal.RightHand, ikTargetRotation);
                 
                 float distanceToHand = Vector3.Distance(handTransform.position, focusObject.transform.position) - focusObject.transform.localScale.x;
-                if (distanceToHand <= 0.4f)
+                if (distanceToHand <= pickUpTolerance)
                 {
                     AttachObjectToHand(focusObject);
-                    isPickingUp = false;
+e                    isPickingUp = false;
                 }
             }
             else
@@ -222,12 +251,16 @@ namespace Supercyan.AnimalPeopleSample
                 m_animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0);
                 m_animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0);
             }
-        }
+        }*/
 
 
         private void AttachObjectToHand(ObjectScript obj)
         {
-            obj.transform.SetParent(rightHandGrip);
+
+
+            obj.setParent(rightHandGrip);
+            
+            //obj.transform.SetParent(rightHandGrip);
             obj.transform.localPosition = Vector3.zero;
             obj.transform.localRotation = Quaternion.identity;
 
@@ -244,7 +277,6 @@ namespace Supercyan.AnimalPeopleSample
             }
 
             isHoldingObject = true;
-            
         }
 
 
