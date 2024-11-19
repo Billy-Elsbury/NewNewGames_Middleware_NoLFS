@@ -1,25 +1,26 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 public class ObjectSpawner : MonoBehaviour
 {
     public GameObject snowBallCloneTemplate;
 
-    public GameObject snowBall()
+    public GameObject SpawnSnowBall()
     {
-        GameObject g = Instantiate(snowBallCloneTemplate);
-        return g;
-    }
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+        GameObject snowBallInstance = Instantiate(snowBallCloneTemplate);
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+        NetworkObject networkObject = snowBallInstance.GetComponent<NetworkObject>();
+        if (networkObject != null)
+        {
+            networkObject.Spawn();
+        }
+        else
+        {
+            Debug.LogError("snowball prefab missing NetworkObject component");
+        }
+
+        return snowBallInstance;
     }
 }

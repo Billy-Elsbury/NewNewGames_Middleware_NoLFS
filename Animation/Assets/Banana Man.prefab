@@ -1385,12 +1385,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rightHandGrip: {fileID: 4530827760529930488}
-  m_moveSpeed: 2
+  m_moveSpeed: 4
   m_turnSpeed: 200
   m_jumpForce: 4
   m_animator: {fileID: 7494155820186247810}
   m_rigidBody: {fileID: 5962055511336890432}
-  m_controlMode: 0
   playerCamera: {fileID: 4570899898562088062}
 --- !u!114 &8764465868437300392
 MonoBehaviour:

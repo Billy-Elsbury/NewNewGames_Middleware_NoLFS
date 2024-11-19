@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Unity.Netcode;
 using UnityEngine;
@@ -9,17 +10,7 @@ namespace Supercyan.AnimalPeopleSample
     {
         private const float pickUpTolerance = 0.4f;
         public Transform rightHandGrip;
-        private enum ControlMode
-        {
-            /// <summary>
-            /// Up moves the character forward, left and right turn the character gradually and down moves the character backwards
-            /// </summary>
-            Tank,
-            /// <summary>
-            /// Character freely moves in the chosen direction from the perspective of the camera
-            /// </summary>
-            Direct
-        }
+        
 
         [SerializeField] private float m_moveSpeed = 2;
         [SerializeField] private float m_turnSpeed = 200;
@@ -27,8 +18,6 @@ namespace Supercyan.AnimalPeopleSample
 
         [SerializeField] private Animator m_animator = null;
         [SerializeField] private Rigidbody m_rigidBody = null;
-
-        [SerializeField] private ControlMode m_controlMode = ControlMode.Direct;
 
         private float m_currentV = 0;
         private float m_currentH = 0;
@@ -44,23 +33,23 @@ namespace Supercyan.AnimalPeopleSample
         private float m_jumpTimeStamp = 0;
         private float m_minJumpInterval = 0.25f;
         private bool m_jumpInput = false;
-        ObjectSpawner objectSpawner;
 
         private bool m_isGrounded;
 
         private List<Collider> m_collisions = new List<Collider>();
 
         ObjectScript focusObject;
-
-        List<ObjectScript> allCatchableItems;
-
+        ObjectSpawner objectSpawner;
 
         private void Awake()
         {
             if (!m_animator) { gameObject.GetComponent<Animator>(); }
             if (!m_rigidBody) { gameObject.GetComponent<Animator>(); }
 
-            allCatchableItems = FindObjectsOfType<ObjectScript>().ToList();
+            if (rightHandGrip == null)
+            {
+                rightHandGrip = m_animator.GetBoneTransform(HumanBodyBones.RightHand);
+            }
         }
 
         [SerializeField] private Camera playerCamera; // Assign the camera from your prefab
@@ -98,8 +87,6 @@ namespace Supercyan.AnimalPeopleSample
                     {
                         closestDistance = distance;
                         closestObject = snowball;
-
-
                     }
 
                 }
@@ -174,15 +161,24 @@ namespace Supercyan.AnimalPeopleSample
         {
             if (!IsOwner) return;
             CharacterMovement();
+            CharacterActions();
+        }
 
+        private void CharacterActions()
+        {
             if (Input.GetKeyDown(KeyCode.P))
             {
-                GameObject g = objectSpawner.snowBall();
-                g.GetComponent<Rigidbody>().isKinematic = false;
-                //g.transform.parent = rightHandGrip;
-                //g.transform.localPosition = Vector3.zero;
+                RequestSnowBallSpawnServerRpc();
             }
+            
         }
+
+        [ServerRpc]
+        private void RequestSnowBallSpawnServerRpc()
+        {
+            objectSpawner.SpawnSnowBall();
+        }
+
 
         private void CharacterMovement()
         {
@@ -195,14 +191,7 @@ namespace Supercyan.AnimalPeopleSample
             {
                 isPickingUp = true;
                 m_animator.SetTrigger("PickUp");
-                //ikTargetPosition = m_animator.GetBoneTransform(HumanBodyBones.RightHand).position;
-
-                float distanceToHand = Vector3.Distance(rightHandGrip.position, focusObject.transform.position) - focusObject.transform.localScale.x;
-                if (distanceToHand <= pickUpTolerance)
-                {
-                    AttachObjectToHand(focusObject);
-                    isPickingUp = false;
-                }
+                ikTargetPosition = m_animator.GetBoneTransform(HumanBodyBones.RightHand).position;
             }
 
             if (!m_jumpInput && Input.GetKey(KeyCode.Space))
@@ -216,7 +205,7 @@ namespace Supercyan.AnimalPeopleSample
             }
         }
 
-        /*private void OnAnimatorIK(int layerIndex)
+        private void OnAnimatorIK(int layerIndex)
         {
             if (isPickingUp && focusObject != null)
             {
@@ -242,7 +231,7 @@ namespace Supercyan.AnimalPeopleSample
                 if (distanceToHand <= pickUpTolerance)
                 {
                     AttachObjectToHand(focusObject);
-e                    isPickingUp = false;
+                    isPickingUp = false;
                 }
             }
             else
@@ -251,26 +240,34 @@ e                    isPickingUp = false;
                 m_animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0);
                 m_animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0);
             }
-        }*/
+        }
 
 
         private void AttachObjectToHand(ObjectScript obj)
         {
+            var networkObject = obj.GetComponent<NetworkObject>();
+            if (networkObject != null)
+            {
+                if (IsServer)
+                {
+                    // Reparent the object to the hand on the server
+                    networkObject.TrySetParent(rightHandGrip);
+                    UpdatePositionAndRotation(obj);
+                }
+                else
+                {
+                    // Request the server to handle reparenting
+                    SubmitReparentRequestServerRpc(networkObject.NetworkObjectId);
+                }
+            }
 
-
-            obj.setParent(rightHandGrip);
-            
-            //obj.transform.SetParent(rightHandGrip);
-            obj.transform.localPosition = Vector3.zero;
-            obj.transform.localRotation = Quaternion.identity;
-
-            Rigidbody objRigidbody = obj.GetComponent<Rigidbody>();
+            var objRigidbody = obj.GetComponent<Rigidbody>();
             if (objRigidbody != null)
             {
                 objRigidbody.isKinematic = true;
             }
 
-            Collider objCollider = obj.GetComponent<Collider>();
+            var objCollider = obj.GetComponent<Collider>();
             if (objCollider != null)
             {
                 objCollider.enabled = false;
@@ -279,37 +276,98 @@ e                    isPickingUp = false;
             isHoldingObject = true;
         }
 
+        // Synchronize position and rotation
+        private void UpdatePositionAndRotation(ObjectScript obj)
+        {
+            obj.transform.localPosition = Vector3.zero;
+            obj.transform.localRotation = Quaternion.identity;
+        }
+
+
+        [ServerRpc]
+        private void SubmitReparentRequestServerRpc(ulong objectId)
+        {
+            NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(objectId, out NetworkObject networkObject);
+            if (networkObject != null)
+            {
+                networkObject.TrySetParent(rightHandGrip);
+            }
+        }
+
+        [ServerRpc]
+        private void SubmitUnparentRequestServerRpc(ulong objectId)
+        {
+            NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(objectId, out NetworkObject networkObject);
+            if (networkObject != null)
+            {
+                networkObject.TrySetParent((GameObject)null);
+            }
+        }
+
 
         private void ThrowObject()
         {
             if (isHoldingObject && focusObject != null)
             {
-                focusObject.transform.SetParent(null);
-
-                Rigidbody objRigidbody = focusObject.GetComponent<Rigidbody>();
-                if (objRigidbody != null)
+                var networkObject = focusObject.GetComponent<NetworkObject>();
+                if (networkObject != null)
                 {
-                    objRigidbody.isKinematic = false;
-
-                    objRigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
-
-                    Vector3 throwDirection = transform.forward + Vector3.up * 0.6f;
-                    float throwForce = 10f;
-                    objRigidbody.AddForce(throwDirection * throwForce, ForceMode.Impulse);
-                }
-
-                Collider objCollider = focusObject.GetComponent<Collider>();
-                if (objCollider != null)
-                {
-                    objCollider.enabled = true;
+                    if (IsServer)
+                    {
+                        // Unparent the object and apply physics changes on the server
+                        networkObject.TrySetParent((GameObject)null);
+                        ApplyThrowForce(focusObject);
+                    }
+                    else
+                    {
+                        // Request the server to handle unparenting and physics
+                        SubmitThrowRequestServerRpc(networkObject.NetworkObjectId);
+                    }
                 }
 
                 isHoldingObject = false;
                 focusObject = null;
 
+                // Trigger the throw animation
                 m_animator.SetTrigger("Throw");
             }
         }
+
+        [ServerRpc]
+        private void SubmitThrowRequestServerRpc(ulong objectId)
+        {
+            if (NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(objectId, out NetworkObject networkObject))
+            {
+                var obj = networkObject.GetComponent<ObjectScript>();
+                if (obj != null)
+                {
+                    networkObject.TrySetParent((GameObject)null);
+                    ApplyThrowForce(obj);
+                }
+            }
+        }
+
+        private void ApplyThrowForce(ObjectScript obj)
+        {
+            var objRigidbody = obj.GetComponent<Rigidbody>();
+            if (objRigidbody != null)
+            {
+                objRigidbody.isKinematic = false;
+                objRigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+
+                // Apply throw force
+                Vector3 throwDirection = transform.forward + Vector3.up * 0.6f;
+                float throwForce = 10f;
+                objRigidbody.AddForce(throwDirection * throwForce, ForceMode.Impulse);
+            }
+
+            var objCollider = obj.GetComponent<Collider>();
+            if (objCollider != null)
+            {
+                objCollider.enabled = true;
+            }
+        }
+
 
 
         private void FixedUpdate()
@@ -318,21 +376,8 @@ e                    isPickingUp = false;
             
             if(Input.GetKeyDown(KeyCode.J))
             m_animator.SetTrigger("Wave");
-            
-            switch (m_controlMode)
-            {
-                case ControlMode.Direct:
-                    DirectUpdate();
-                    break;
 
-                case ControlMode.Tank:
-                    TankUpdate();
-                    break;
-
-                default:
-                    Debug.LogError("Unsupported state");
-                    break;
-            }
+            TankUpdate();
 
             m_wasGrounded = m_isGrounded;
             m_jumpInput = false;
@@ -362,45 +407,6 @@ e                    isPickingUp = false;
             transform.Rotate(0, m_currentH * m_turnSpeed * Time.deltaTime, 0);
 
             m_animator.SetFloat("MoveSpeed", m_currentV);
-
-            JumpingAndLanding();
-        }
-
-        private void DirectUpdate()
-        {
-            float v = Input.GetAxis("Vertical");
-            float h = Input.GetAxis("Horizontal");
-
-            Transform camera = Camera.main.transform;
-
-            if (Input.GetKey(KeyCode.LeftShift))
-            {
-                v *= m_walkScale;
-                h *= m_walkScale;
-            }
-
-            if(Input.GetKey(KeyCode.Mouse0))
-            {
-            }
-
-            m_currentV = Mathf.Lerp(m_currentV, v, Time.deltaTime * m_interpolation);
-            m_currentH = Mathf.Lerp(m_currentH, h, Time.deltaTime * m_interpolation);
-
-            Vector3 direction = camera.forward * m_currentV + camera.right * m_currentH;
-
-            float directionLength = direction.magnitude;
-            direction.y = 0;
-            direction = direction.normalized * directionLength;
-
-            if (direction != Vector3.zero)
-            {
-                m_currentDirection = Vector3.Slerp(m_currentDirection, direction, Time.deltaTime * m_interpolation);
-
-                transform.rotation = Quaternion.LookRotation(m_currentDirection);
-                transform.position += m_currentDirection * m_moveSpeed * Time.deltaTime;
-
-                m_animator.SetFloat("MoveSpeed", direction.magnitude);
-            }
 
             JumpingAndLanding();
         }
