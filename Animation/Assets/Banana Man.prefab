@@ -1384,7 +1384,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e292e05258fa8f9488f1321cb014a57c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rightHandGrip: {fileID: 4530827760529930488}
+  rightHandGrip: {fileID: 7883002740467600500}
   m_moveSpeed: 4
   m_turnSpeed: 200
   m_jumpForce: 4

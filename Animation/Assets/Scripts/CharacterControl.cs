@@ -242,6 +242,12 @@ namespace Supercyan.AnimalPeopleSample
             }
         }
 
+        public override void OnNetworkObjectParentChanged(NetworkObject parentNetworkObject)
+        {
+            print("parentChangedCalled");
+
+            base.OnNetworkObjectParentChanged(parentNetworkObject);
+        }
 
         private void AttachObjectToHand(ObjectScript obj)
         {
@@ -251,8 +257,10 @@ namespace Supercyan.AnimalPeopleSample
                 if (IsServer)
                 {
                     // Reparent the object to the hand on the server
-                    networkObject.TrySetParent(rightHandGrip);
+                    print("Host tried to attach object");
+                    networkObject.TrySetParent(rightHandGrip, false);
                     UpdatePositionAndRotation(obj);
+                    
                 }
                 else
                 {
@@ -276,7 +284,7 @@ namespace Supercyan.AnimalPeopleSample
             isHoldingObject = true;
         }
 
-        // Synchronize position and rotation
+        // Sync position and rotation
         private void UpdatePositionAndRotation(ObjectScript obj)
         {
             obj.transform.localPosition = Vector3.zero;
@@ -291,16 +299,6 @@ namespace Supercyan.AnimalPeopleSample
             if (networkObject != null)
             {
                 networkObject.TrySetParent(rightHandGrip);
-            }
-        }
-
-        [ServerRpc]
-        private void SubmitUnparentRequestServerRpc(ulong objectId)
-        {
-            NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(objectId, out NetworkObject networkObject);
-            if (networkObject != null)
-            {
-                networkObject.TrySetParent((GameObject)null);
             }
         }
 
