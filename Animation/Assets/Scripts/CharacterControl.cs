@@ -38,9 +38,11 @@ namespace Supercyan.AnimalPeopleSample
 
         private List<Collider> m_collisions = new List<Collider>();
 
+        Transform rightHandGripTr;
+
         ObjectScript focusObject;
         ObjectSpawner objectSpawner;
-
+        CloneManagerScript theClones;
         private void Awake()
         {
             if (!m_animator) { gameObject.GetComponent<Animator>(); }
@@ -50,6 +52,10 @@ namespace Supercyan.AnimalPeopleSample
             {
                 rightHandGrip = m_animator.GetBoneTransform(HumanBodyBones.RightHand);
             }
+
+            theClones = FindObjectOfType<CloneManagerScript>();
+
+            rightHandGripTr = Instantiate(theClones.HandGripCloneTemplate).transform;
         }
 
         [SerializeField] private Camera playerCamera; // Assign the camera from your prefab
@@ -67,6 +73,8 @@ namespace Supercyan.AnimalPeopleSample
             }
 
             objectSpawner = FindObjectOfType<ObjectSpawner>();
+
+
         }
 
         private ObjectScript ClosestObject()
@@ -162,6 +170,9 @@ namespace Supercyan.AnimalPeopleSample
             if (!IsOwner) return;
             CharacterMovement();
             CharacterActions();
+
+            rightHandGripTr.position = rightHandGrip.position;
+            rightHandGripTr.rotation = rightHandGrip.rotation;
         }
 
         private void CharacterActions()
@@ -230,7 +241,7 @@ namespace Supercyan.AnimalPeopleSample
                 float distanceToHand = Vector3.Distance(handTransform.position, focusObject.transform.position) - focusObject.transform.localScale.x;
                 if (distanceToHand <= pickUpTolerance)
                 {
-                    AttachObjectToHand(focusObject);
+                    AttachObjectToHandTr(focusObject);
                     isPickingUp = false;
                 }
             }
@@ -242,30 +253,23 @@ namespace Supercyan.AnimalPeopleSample
             }
         }
 
-        public override void OnNetworkObjectParentChanged(NetworkObject parentNetworkObject)
-        {
-            print("parentChangedCalled");
-
-            base.OnNetworkObjectParentChanged(parentNetworkObject);
-        }
-
-        private void AttachObjectToHand(ObjectScript obj)
+        private void AttachObjectToHandTr(ObjectScript obj)
         {
             var networkObject = obj.GetComponent<NetworkObject>();
             if (networkObject != null)
             {
-                if (IsServer)
+                //if (IsServer)
                 {
                     // Reparent the object to the hand on the server
                     print("Host tried to attach object");
-                    networkObject.TrySetParent(rightHandGrip, false);
+                    networkObject.TrySetParent(rightHandGripTr, false);
                     UpdatePositionAndRotation(obj);
-                    
                 }
-                else
+                //else
                 {
                     // Request the server to handle reparenting
-                    SubmitReparentRequestServerRpc(networkObject.NetworkObjectId);
+                    //SubmitReparentRequestServerRpc(networkObject.NetworkObjectId);
+                    //UpdatePositionAndRotation(obj);
                 }
             }
 
@@ -298,7 +302,7 @@ namespace Supercyan.AnimalPeopleSample
             NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(objectId, out NetworkObject networkObject);
             if (networkObject != null)
             {
-                networkObject.TrySetParent(rightHandGrip);
+                networkObject.TrySetParent(rightHandGripTr);
             }
         }
 
