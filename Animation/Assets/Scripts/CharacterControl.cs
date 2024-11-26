@@ -58,7 +58,7 @@ namespace Supercyan.AnimalPeopleSample
             rightHandGripTr = Instantiate(theClones.HandGripCloneTemplate).transform;
         }
 
-        [SerializeField] private Camera playerCamera; // Assign the camera from your prefab
+        [SerializeField] private Camera playerCamera; // Assign the camera from the prefab
 
         private void Start()
         {
@@ -117,36 +117,7 @@ namespace Supercyan.AnimalPeopleSample
                 }
             }
         }
-
-        private void OnCollisionStay(Collision collision)
-        {
-            ContactPoint[] contactPoints = collision.contacts;
-            bool validSurfaceNormal = false;
-            for (int i = 0; i < contactPoints.Length; i++)
-            {
-                if (Vector3.Dot(contactPoints[i].normal, Vector3.up) > 0.5f)
-                {
-                    validSurfaceNormal = true; break;
-                }
-            }
-
-            if (validSurfaceNormal)
-            {
-                m_isGrounded = true;
-                if (!m_collisions.Contains(collision.collider))
-                {
-                    m_collisions.Add(collision.collider);
-                }
-            }
-            else
-            {
-                if (m_collisions.Contains(collision.collider))
-                {
-                    m_collisions.Remove(collision.collider);
-                }
-                if (m_collisions.Count == 0) { m_isGrounded = false; }
-            }
-        }
+        
 
         private void OnCollisionExit(Collision collision)
         {
@@ -216,6 +187,36 @@ namespace Supercyan.AnimalPeopleSample
             }
         }
 
+        private void OnCollisionStay(Collision collision)
+        {
+            ContactPoint[] contactPoints = collision.contacts;
+            bool validSurfaceNormal = false;
+            for (int i = 0; i < contactPoints.Length; i++)
+            {
+                if (Vector3.Dot(contactPoints[i].normal, Vector3.up) > 0.5f)
+                {
+                    validSurfaceNormal = true; break;
+                }
+            }
+
+            if (validSurfaceNormal)
+            {
+                m_isGrounded = true;
+                if (!m_collisions.Contains(collision.collider))
+                {
+                    m_collisions.Add(collision.collider);
+                }
+            }
+            else
+            {
+                if (m_collisions.Contains(collision.collider))
+                {
+                    m_collisions.Remove(collision.collider);
+                }
+                if (m_collisions.Count == 0) { m_isGrounded = false; }
+            }
+        }
+
         private void OnAnimatorIK(int layerIndex)
         {
             if (isPickingUp && focusObject != null)
@@ -258,18 +259,18 @@ namespace Supercyan.AnimalPeopleSample
             var networkObject = obj.GetComponent<NetworkObject>();
             if (networkObject != null)
             {
-                //if (IsServer)
+                if (IsServer)
                 {
                     // Reparent the object to the hand on the server
                     print("Host tried to attach object");
                     networkObject.TrySetParent(rightHandGripTr, false);
                     UpdatePositionAndRotation(obj);
                 }
-                //else
+                else
                 {
                     // Request the server to handle reparenting
-                    //SubmitReparentRequestServerRpc(networkObject.NetworkObjectId);
-                    //UpdatePositionAndRotation(obj);
+                    SubmitReparentRequestServerRpc(networkObject.NetworkObjectId);
+                    UpdatePositionAndRotation(obj);
                 }
             }
 
