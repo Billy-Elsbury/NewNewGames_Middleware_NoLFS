@@ -18,6 +18,8 @@ namespace Supercyan.AnimalPeopleSample
 
         [SerializeField] private Animator m_animator = null;
         [SerializeField] private Rigidbody m_rigidBody = null;
+        [SerializeField] private float mouseSensitivity = 2f;
+        private float verticalRotation = 0f;
 
         private float m_currentV = 0;
         private float m_currentH = 0;
@@ -65,11 +67,13 @@ namespace Supercyan.AnimalPeopleSample
             // Ensure this setup only runs for the local player
             if (IsLocalPlayer)
             {
-                playerCamera.enabled = true;  // Enable the local player's camera
+                playerCamera.enabled = true;  
+                Cursor.lockState = CursorLockMode.Locked;
+
             }
             else
             {
-                playerCamera.enabled = false; // Disable remote players' cameras
+                playerCamera.enabled = false;
             }
 
             objectSpawner = FindObjectOfType<ObjectSpawner>();
@@ -141,9 +145,22 @@ namespace Supercyan.AnimalPeopleSample
             if (!IsOwner) return;
             CharacterMovement();
             CharacterActions();
+            CameraControl();
 
             rightHandGripTr.position = rightHandGrip.position;
             rightHandGripTr.rotation = rightHandGrip.rotation;
+        }
+
+        private void CameraControl()
+        {
+            float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
+            float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+
+            verticalRotation -= mouseY;
+            verticalRotation = Mathf.Clamp(verticalRotation, -90f, 90f);
+
+            playerCamera.transform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
+            transform.Rotate(Vector3.up * mouseX);
         }
 
         private void CharacterActions()
@@ -380,10 +397,39 @@ namespace Supercyan.AnimalPeopleSample
             if(Input.GetKeyDown(KeyCode.J))
             m_animator.SetTrigger("Wave");
 
-            TankUpdate();
+            //TankUpdate();
+            StrafingUpdate();
 
             m_wasGrounded = m_isGrounded;
             m_jumpInput = false;
+        }
+
+        private void StrafingUpdate()
+        {
+            float v = Input.GetAxis("Vertical");
+            float h = Input.GetAxis("Horizontal");
+            bool walk = Input.GetKey(KeyCode.LeftShift);
+
+            if (v < 0)
+            {
+                if (walk) { v *= m_backwardsWalkScale; }
+                else { v *= m_backwardRunScale; }
+            }
+            else if (walk)
+            {
+                v *= m_walkScale;
+                h *= m_walkScale;
+            }
+
+            m_currentV = Mathf.Lerp(m_currentV, v, Time.deltaTime * m_interpolation);
+            m_currentH = Mathf.Lerp(m_currentH, h, Time.deltaTime * m_interpolation);
+
+            Vector3 movement = transform.forward * m_currentV + transform.right * m_currentH;
+            transform.position += movement * m_moveSpeed * Time.deltaTime;
+
+            m_animator.SetFloat("MoveSpeed", movement.magnitude);
+
+            JumpingAndLanding();
         }
 
         private void TankUpdate()
