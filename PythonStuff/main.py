@@ -1,68 +1,69 @@
-import math
+import ctypes
 import time
-import pyautogui
 import keyboard
-
+import math
 
 class PhotogrammetryCapture:
-    def __init__(self):
+    def __init__(self, camera_speed=float(0), vertical_offset=0):
         self.running = True
-        self.center_x, self.center_y = pyautogui.size()[0] // 2, pyautogui.size()[1] // 2
-        self.orbit_radius = 200
-        self.current_angle = 0
-        self.orbit_steps = 0
+        self.camera_speed = camera_speed
+        self.vertical_offset = vertical_offset
 
     def step_back(self, duration=3):
-        """Moves the character back for the given duration."""
+        print("Stepping back...")
         keyboard.press('s')
         time.sleep(duration)
         keyboard.release('s')
+        print("Step back complete.")
 
-    def orbit_camera(self):
-        """Circles around the object three times, changing the vertical angle."""
-        vertical_angles = [0, -10, 10]  # Look straight, slightly down, slightly up
+    def move_mouse(self, dx, dy):
+        ctypes.windll.user32.mouse_event(0x0001, int(dx), int(dy), 0, 0)
 
-        for angle in vertical_angles:
-            for _ in range(360):  # One full circle per angle
-                if not self.running:
-                    break
+    def ease_out_cubic(self, t):
+        return 1 - math.pow(1 - t, 3)
 
-                # Check if the Escape key is pressed to exit
-                if keyboard.is_pressed('esc'):
-                    print("Exiting capture...")
-                    self.running = False
-                    break
+    def orbit_camera(self, orbit_number):
+        print(f"Starting orbit {orbit_number}...")
+        orbit_duration = 15
+        start_time = time.time()
+        vertical_direction = -1 if orbit_number == 2 else 1 if orbit_number == 3 else 0
 
-                # Adjust the angle for horizontal orbit
-                if keyboard.is_pressed('a'):
-                    self.current_angle -= 1
-                elif keyboard.is_pressed('d'):
-                    self.current_angle += 1
+        while time.time() - start_time < orbit_duration:
+            if keyboard.is_pressed('esc'):
+                print("Exiting capture...")
+                self.running = False
+                return
 
-                # Calculate the new position based on the orbit radius and angle
-                x = self.center_x + int(self.orbit_radius * math.cos(math.radians(self.current_angle)))
-                y = self.center_y + int(self.orbit_radius * math.sin(math.radians(self.current_angle)))
+            # Calculate progress for easing
+            elapsed_time = time.time() - start_time
+            progress = min(elapsed_time / 1, 1) if vertical_direction != 0 else 0
+            ease = self.ease_out_cubic(progress)
 
-                # Move the cursor to the new position
-                pyautogui.moveTo(x, y)
+            # Apply smooth vertical offset during the first second of the orbit
+            if vertical_direction != 0 and elapsed_time <= 1:
+                move = int(vertical_direction * self.vertical_offset * ease) - int(vertical_direction * self.vertical_offset * self.ease_out_cubic(progress - 0.01))
+                self.move_mouse(0, move)
 
-                # Adjust the camera angle vertically
-                pyautogui.moveTo(x, y + int(angle))  # Simulate looking up/down
+            keyboard.press('d')
+            self.move_mouse(-self.camera_speed, 0)
+            time.sleep(0.01)
 
-                time.sleep(0.01)
+        keyboard.release('d')
+        print(f"Completed orbit {orbit_number}.")
 
     def capture_sequence(self):
-        self.step_back(duration=3)  # Move back for 3 seconds
-        self.orbit_camera()  # Orbit around the object
-
+        self.step_back(duration=3)
+        for i in range(1, 4):
+            self.orbit_camera(i)
+            if not self.running:
+                break
 
 def main():
-    capture = PhotogrammetryCapture()
+    capture = PhotogrammetryCapture(camera_speed=3, vertical_offset=500)  # Adjust vertical_offset as needed
     print("Starting capture in 5 seconds...")
     print("Press 'Esc' to exit.")
     time.sleep(5)
     capture.capture_sequence()
-
 
 if __name__ == "__main__":
     main()
