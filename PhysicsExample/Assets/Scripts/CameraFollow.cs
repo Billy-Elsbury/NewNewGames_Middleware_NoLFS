@@ -3,7 +3,7 @@ using UnityEngine;
 public class CameraFollow : MonoBehaviour
 {
     public Transform target;      
-    public float distance = 5.0f;        
+    public float distance = 100.0f;        
     public float rotationSpeed = 5.0f;    
 
     private float yaw = 0.0f;           

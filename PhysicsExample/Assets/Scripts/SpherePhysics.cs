@@ -1,16 +1,12 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using Unity.VisualScripting;
-using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 public class SpherePhysics : MonoBehaviour
 {
     internal Vector3 previousVelocity, previousPosition, acceleration;
     internal Vector3 velocity;
-    internal float mass = 1.0f;
+    internal float mass = 10.0f;
     internal float gravity = 9.81f;
+    internal float spaceGravity = 0.01f;
     internal float coefficientOfRestitution = 0.8f;
     internal float drag = 0.3f;
     internal float maxAcceleration = 1f;
@@ -22,23 +18,29 @@ public class SpherePhysics : MonoBehaviour
     }
 
     // Update is called once per frame
-    internal void Update()
+    internal void FixedUpdate()
     {
         previousVelocity = velocity;
         previousPosition = transform.position;
 
-        //acceleration = gravity * Vector3.down;
+        // Calculate forces without directly overwriting acceleration
+        Vector3 gravityForce = spaceGravity * Vector3.down;
 
         Vector3 dragForce = -drag * velocity;
+        if (dragForce.magnitude > velocity.magnitude * mass)
+            dragForce = velocity.normalized * velocity.magnitude * mass;
+
         acceleration += dragForce / mass;
 
-        velocity += acceleration * Time.deltaTime;
+        // add gravity after player input
+        velocity += (acceleration + gravityForce) * Time.deltaTime;
+
         transform.position += velocity * Time.deltaTime;
 
-        //acceleration = Vector3.ClampMagnitude(acceleration, maxAcceleration); 
-
-        print(acceleration);
+        //reset
+        acceleration = Vector3.zero;
     }
+
 
 
     public void ResolveCollisionWith(PlaneScript planeScript)
@@ -47,7 +49,7 @@ public class SpherePhysics : MonoBehaviour
         float previousDistance = Vector3.Dot(previousPosition - planeScript.Position, planeScript.Normal) - Radius;
 
         // DEBUG
-        print("Distance: " + currentDistance + " Old Distance: " + previousDistance);
+        //print("Distance: " + currentDistance + " Old Distance: " + previousDistance);
 
         // Step 1) To check dividing by zero
         float timeOfImpact = -previousDistance / (currentDistance - previousDistance) * Time.deltaTime;
@@ -91,7 +93,7 @@ public class SpherePhysics : MonoBehaviour
         float previousSpherePlaneDistance = Vector3.Distance(sphere2.previousPosition, previousPosition) - (sphere2.Radius + Radius);
 
         float timeOfImpact = -previousSpherePlaneDistance / (currentSpherePlaneDistance - previousSpherePlaneDistance) * Time.deltaTime;
-        print("TOI: " + timeOfImpact + " deltaTime: " + Time.deltaTime);
+        //print("TOI: " + timeOfImpact + " deltaTime: " + Time.deltaTime);
 
         // After getting TOI, calculate position of spheres at impact for both spheres.
         Vector3 sphere1AtImpact = previousPosition + velocity * timeOfImpact;
@@ -135,11 +137,10 @@ public class SpherePhysics : MonoBehaviour
         // Checking for overlap between spheres after resolution
         if (Vector3.Distance(transform.position, sphere2ResolvedPosition) < (Radius + sphere2.Radius))
         {
-            print("HELP");
+            print("Overlap Detected");
         }
 
         sphere2.slaveCollisionResolution(sphere2ResolvedPosition, sphere2Velocity);
-
     }
 
     private void slaveCollisionResolution(Vector3 position, Vector3 newVelocity)

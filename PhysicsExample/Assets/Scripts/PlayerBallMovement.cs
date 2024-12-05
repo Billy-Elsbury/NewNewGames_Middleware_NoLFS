@@ -2,13 +2,13 @@ using UnityEngine;
 
 public class PlayerBallMovement : SpherePhysics
 {
-    public float movementSpeed = 1f;
+    public float movementSpeed = 100f;
     public Transform cameraTransform;
 
     // Update is called once per frame
-    void Update()
+    void LateUpdate()
     {
-        acceleration = Vector3.zero;
+        base.FixedUpdate();
 
         Vector3 forward = cameraTransform.forward;
         Vector3 right = cameraTransform.right;
@@ -16,18 +16,22 @@ public class PlayerBallMovement : SpherePhysics
         forward.Normalize();
         right.Normalize();
 
+        Vector3 movementInput = Vector3.zero;
+
         if (Input.GetKey(KeyCode.W))
-            acceleration += forward * movementSpeed;
+            movementInput += forward * movementSpeed;
 
         if (Input.GetKey(KeyCode.S))
-            acceleration += -forward * movementSpeed;
+            movementInput += -forward * movementSpeed;
 
         if (Input.GetKey(KeyCode.A))
-            acceleration += -right * movementSpeed;
+            movementInput += -right * movementSpeed;
 
         if (Input.GetKey(KeyCode.D))
-            acceleration += right * movementSpeed;
+            movementInput += right * movementSpeed;
 
-        base.Update();
+        velocity += movementInput * Time.deltaTime;
     }
+
+
 }
