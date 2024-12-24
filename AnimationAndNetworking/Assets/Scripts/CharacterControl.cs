@@ -45,6 +45,7 @@ namespace Supercyan.AnimalPeopleSample
         CloneManagerScript theClones;
         private void Awake()
         {
+
             if (!m_animator) { gameObject.GetComponent<Animator>(); }
             if (!m_rigidBody) { gameObject.GetComponent<Animator>(); }
 
@@ -102,7 +103,7 @@ namespace Supercyan.AnimalPeopleSample
             return closestObject;
         }
 
-            private void OnCollisionEnter(Collision collision)
+        private void OnCollisionEnter(Collision collision)
         {
             ContactPoint[] contactPoints = collision.contacts;
             for (int i = 0; i < contactPoints.Length; i++)
